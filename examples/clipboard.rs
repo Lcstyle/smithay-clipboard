@@ -265,6 +265,24 @@ impl CompositorHandler for SimpleWindow {
     ) {
         self.draw(conn, qh);
     }
+
+    fn surface_enter(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &wl_surface::WlSurface,
+        _output: &wl_output::WlOutput,
+    ) {
+    }
+
+    fn surface_leave(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &wl_surface::WlSurface,
+        _output: &wl_output::WlOutput,
+    ) {
+    }
 }
 
 impl OutputHandler for SimpleWindow {
@@ -538,14 +556,25 @@ impl KeyboardHandler for SimpleWindow {
     ) {
     }
 
+    fn repeat_key(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        _serial: u32,
+        _event: KeyEvent,
+    ) {
+    }
+
     fn update_modifiers(
         &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
         _serial: u32,
         _modifiers: Modifiers,
-        _: u32,
+        _raw_modifiers: sctk::seat::keyboard::RawModifiers,
+        _layout: u32,
     ) {
     }
 }
