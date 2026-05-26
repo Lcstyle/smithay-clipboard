@@ -104,9 +104,32 @@ fn worker_impl<T: 'static + Clone>(
 
     WaylandSource::new(connection, event_queue).insert(loop_handle).unwrap();
 
-    loop {
+    // Run the dispatch loop inside `catch_unwind`. The 0.7.1 fix (#52) handles
+    // the case where `dispatch` *returns* an error when the Wayland connection
+    // breaks, but not the case where an event handler *panics* (e.g. an
+    // `unwrap` in an sctk/clipboard Dispatch impl fired after the compositor
+    // dropped the connection). Such a panic unwinds through this function,
+    // dropping `state` mid-unwind; `ClipboardSeatState`/data-source `Drop`
+    // impls then try to send Wayland requests on the dead connection and panic
+    // a second time, which the runtime turns into `panic_in_cleanup` -> abort,
+    // killing the whole host application. Catching here keeps any handler panic
+    // from escalating: the loop simply ends and the clipboard is considered
+    // dead, matching the #52 intent for the error path.
+    let dispatch_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| loop {
         if event_loop.dispatch(None, &mut state).is_err() || state.exit {
             break;
         }
+    }));
+    if dispatch_result.is_err() {
+        eprintln!(
+            "smithay-clipboard: worker thread caught a panic (Wayland connection likely \
+             broken); shutting the clipboard worker down without aborting the process"
+        );
     }
+
+    // Tear `state` down on a non-unwinding stack and guard the drop too: if a
+    // proxy `Drop` panics while destroying objects on a dead connection it is
+    // now at worst a single, isolated panic that ends this thread cleanly
+    // rather than a double-panic that aborts the process.
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || drop(state)));
 }
